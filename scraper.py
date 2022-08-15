@@ -1,46 +1,13 @@
 import json
-import re
-from multiprocessing.pool import ThreadPool
-
-import ADC_function
+import secrets
 import config
-from ADC_function import translate
 from lxml import etree
 from pathlib import Path
 
-# =========website========
-from . import airav
-from . import avsox
-from . import fanza
-from . import fc2
-from . import jav321
-from . import javbus
-from . import javdb
-from . import mgstage
-from . import xcity
-# from . import javlib
-from . import dlsite
-from . import carib
-from . import fc2club
-from . import mv91
-from . import madou
-from . import gcolle
+from ADC_function import delete_all_elements_in_list, delete_all_elements_in_str, file_modification_days, load_cookies, translate
+from scrapinglib.api import search
 
-
-def get_data_state(data: dict) -> bool:  # 元数据获取失败检测
-    if "title" not in data or "number" not in data:
-        return False
-
-    if data["title"] is None or data["title"] == "" or data["title"] == "null":
-        return False
-
-    if data["number"] is None or data["number"] == "" or data["number"] == "null":
-        return False
-
-    return True
-
-
-def get_data_from_json(file_number, oCC):
+def get_data_from_json(file_number, oCC, specified_source, specified_url):
     """
     iterate through all services and fetch the data 从JSON返回元数据
     """
@@ -48,118 +15,47 @@ def get_data_from_json(file_number, oCC):
     actor_mapping_data = etree.parse(str(Path.home() / '.local' / 'share' / 'mdc' / 'mapping_actor.xml'))
     info_mapping_data = etree.parse(str(Path.home() / '.local' / 'share' / 'mdc' / 'mapping_info.xml'))
 
-    func_mapping = {
-        "airav": airav.main,
-        "avsox": avsox.main,
-        "fc2": fc2.main,
-        "fanza": fanza.main,
-        "javdb": javdb.main,
-        "javbus": javbus.main,
-        "mgstage": mgstage.main,
-        "jav321": jav321.main,
-        "xcity": xcity.main,
-        # "javlib": javlib.main,
-        "dlsite": dlsite.main,
-        "carib": carib.main,
-        "fc2club": fc2club.main,
-        "mv91": mv91.main,
-        "madou": madou.main,
-        "gcolle": gcolle.main,
-    }
-
     conf = config.getInstance()
     # default fetch order list, from the beginning to the end
-    sources = conf.sources().split(',')
-    if len(sources) <= len(func_mapping):
-        # if the input file name matches certain rules,
-        # move some web service to the beginning of the list
-        lo_file_number = file_number.lower()
-        if "carib" in sources and (re.match(r"^\d{6}-\d{3}", file_number)
-        ):
-            sources.insert(0, sources.pop(sources.index("carib")))
-        elif re.match(r"^\d{5,}", file_number) or "heyzo" in lo_file_number:
-            if "javdb" in sources:
-                sources.insert(0, sources.pop(sources.index("javdb")))
-            if "avsox" in sources:
-                sources.insert(0, sources.pop(sources.index("avsox")))
-        elif "mgstage" in sources and (re.match(r"\d+\D+", file_number) or
-                                       "siro" in lo_file_number
-        ):
-            sources.insert(0, sources.pop(sources.index("mgstage")))
-        elif "fc2" in lo_file_number:
-            if "javdb" in sources:
-                sources.insert(0, sources.pop(sources.index("javdb")))
-            if "fc2" in sources:
-                sources.insert(0, sources.pop(sources.index("fc2")))
-            if "fc2club" in sources:
-                sources.insert(0, sources.pop(sources.index("fc2club")))
-        elif "gcolle" in sources and (re.search("\d{6}", file_number)):
-            sources.insert(0, sources.pop(sources.index("gcolle")))
-        elif "dlsite" in sources and (
-                "rj" in lo_file_number or "vj" in lo_file_number
-        ):
-            sources.insert(0, sources.pop(sources.index("dlsite")))
-        elif re.match(r"^[a-z0-9]{3,}$", lo_file_number):
-            if "javdb" in sources:
-                sources.insert(0, sources.pop(sources.index("javdb")))
-            if "xcity" in sources:
-                sources.insert(0, sources.pop(sources.index("xcity")))
-            if "madou" in sources:
-                sources.insert(0, sources.pop(sources.index("madou")))
-        elif "madou" in sources and (
-                re.match(r"^[a-z0-9]{3,}-[0-9]{1,}$", lo_file_number)
-        ):
-            sources.insert(0, sources.pop(sources.index("madou")))
+    sources = conf.sources()
 
-    # check sources in func_mapping
-    todel = []
-    for s in sources:
-        if not s in func_mapping:
-            print('[!] Source Not Exist : ' + s)
-            todel.append(s)
-    for d in todel:
-        print('[!] Remove Source : ' + s)
-        sources.remove(d)
-
-    json_data = {}
-
-    if conf.multi_threading():
-        pool = ThreadPool(processes=len(conf.sources().split(',')))
-
-        # Set the priority of multi-thread crawling and join the multi-thread queue
-        for source in sources:
-            pool.apply_async(func_mapping[source], (file_number,))
-
-        # Get multi-threaded crawling response
-        for source in sources:
-            if conf.debug() == True:
-                print('[+]select', source)
-            try:
-                json_data = json.loads(pool.apply_async(func_mapping[source], (file_number,)).get())
-            except:
-                json_data = pool.apply_async(func_mapping[source], (file_number,)).get()
-            # if any service return a valid return, break
-            if get_data_state(json_data):
-                print(f"[+]Find movie [{file_number}] metadata on website '{source}'")
+    # TODO 准备参数
+    # - 清理 ADC_function, webcrawler
+    proxies = None
+    configProxy = conf.proxy()
+    if configProxy.enable:
+        proxies = configProxy.proxies()
+    
+    javdb_sites = conf.javdb_sites().split(',')
+    for i in javdb_sites:
+        javdb_sites[javdb_sites.index(i)] = "javdb" + i
+    javdb_sites.append("javdb")
+    # 不加载过期的cookie，javdb登录界面显示为7天免登录，故假定cookie有效期为7天
+    has_json = False
+    for cj in javdb_sites:
+        javdb_site = cj
+        cookie_json = javdb_site + '.json'
+        cookies_dict, cookies_filepath = load_cookies(cookie_json)
+        if isinstance(cookies_dict, dict) and isinstance(cookies_filepath, str):
+            cdays = file_modification_days(cookies_filepath)
+            if cdays < 7:
+                javdb_cookies = cookies_dict
+                has_json = True
                 break
-        pool.close()
-        pool.terminate()
-    else:
-        for source in sources:
-            try:
-                if conf.debug() == True:
-                    print('[+]select', source)
-                try:
-                    json_data = json.loads(func_mapping[source](file_number))
-                except:
-                    json_data = func_mapping[source](file_number)
-                # if any service return a valid return, break
-                if get_data_state(json_data):
-                    print(f"[+]Find movie [{file_number}] metadata on website '{source}'")
-                    break
-            except:
-                break
+            elif cdays != 9999:
+                print(f'[!]Cookies file {cookies_filepath} was updated {cdays} days ago, it will not be used for HTTP requests.')
+    if not has_json:
+        javdb_site = secrets.choice(javdb_sites)
+        javdb_cookies = None
 
+    cacert =None
+    if conf.cacert_file():
+        cacert = conf.cacert_file()
+
+    json_data = search(file_number, sources, proxies=proxies, verify=cacert,
+                        dbsite=javdb_site, dbcookies=javdb_cookies,
+                        morestoryline=conf.is_storyline(),
+                        specifiedSource=specified_source, specifiedUrl=specified_url)
     # Return if data not found in all sources
     if not json_data:
         print('[-]Movie Number not found!')
@@ -170,8 +66,12 @@ def get_data_from_json(file_number, oCC):
     # 然而也可以跟进关注其它命名规则例如airav.wiki Domain Creation Date: 2019-08-28T07:18:42.0Z
     # 如果将来javdb.com命名规则下不同Studio出现同名碰撞导致无法区分，可考虑更换规则，更新相应的number分析和抓取代码。
     if str(json_data.get('number')).upper() != file_number.upper():
-        print('[-]Movie number has changed! [{}]->[{}]'.format(file_number, str(json_data.get('number'))))
-        return None
+        try:
+            if json_data.get('allow_number_change'):
+                pass
+        except:
+            print('[-]Movie number has changed! [{}]->[{}]'.format(file_number, str(json_data.get('number'))))
+            return None
 
     # ================================================网站规则添加结束================================================
 
@@ -313,26 +213,26 @@ def get_data_from_json(file_number, oCC):
                 try:
                     if ccm == 1:
                         json_data[cc] = convert_list(info_mapping_data, "zh_cn", json_data[cc])
-                        json_data[cc] = ADC_function.delete_all_elements_in_list("删除", json_data[cc])
+                        json_data[cc] = delete_all_elements_in_list("删除", json_data[cc])
                     elif ccm == 2:
                         json_data[cc] = convert_list(info_mapping_data, "zh_tw", json_data[cc])
-                        json_data[cc] = ADC_function.delete_all_elements_in_list("删除", json_data[cc])
+                        json_data[cc] = delete_all_elements_in_list("删除", json_data[cc])
                     elif ccm == 3:
                         json_data[cc] = convert_list(info_mapping_data, "jp", json_data[cc])
-                        json_data[cc] = ADC_function.delete_all_elements_in_list("删除", json_data[cc])
+                        json_data[cc] = delete_all_elements_in_list("删除", json_data[cc])
                 except:
                     json_data[cc] = [oCC.convert(t) for t in json_data[cc]]
             else:
                 try:
                     if ccm == 1:
                         json_data[cc] = convert(info_mapping_data, "zh_cn", json_data[cc])
-                        json_data[cc] = ADC_function.delete_all_elements_in_str("删除", json_data[cc])
+                        json_data[cc] = delete_all_elements_in_str("删除", json_data[cc])
                     elif ccm == 2:
                         json_data[cc] = convert(info_mapping_data, "zh_tw", json_data[cc])
-                        json_data[cc] = ADC_function.delete_all_elements_in_str("删除", json_data[cc])
+                        json_data[cc] = delete_all_elements_in_str("删除", json_data[cc])
                     elif ccm == 3:
                         json_data[cc] = convert(info_mapping_data, "jp", json_data[cc])
-                        json_data[cc] = ADC_function.delete_all_elements_in_str("删除", json_data[cc])
+                        json_data[cc] = delete_all_elements_in_str("删除", json_data[cc])
                 except IndexError:
                     json_data[cc] = oCC.convert(json_data[cc])
                 except:

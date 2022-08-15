@@ -14,7 +14,8 @@ from datetime import datetime
 from lxml import etree
 
 from ADC_function import *
-from WebCrawler import get_data_from_json
+# from WebCrawler import get_data_from_json
+from scraper import get_data_from_json
 from number_parser import is_uncensored
 from ImageProcessing import cutImage
 
@@ -60,7 +61,7 @@ def get_info(json_data):  # 返回json里的数据
     outline = json_data.get('outline')
     runtime = json_data.get('runtime')
     director = json_data.get('director')
-    actor_photo = json_data.get('actor_photo')
+    actor_photo = json_data.get('actor_photo', {})
     release = json_data.get('release')
     number = json_data.get('number')
     cover = json_data.get('cover')
@@ -71,11 +72,14 @@ def get_info(json_data):  # 返回json里的数据
     return title, studio, year, outline, runtime, director, actor_photo, release, number, cover, trailer, website, series, label
 
 
-def small_cover_check(path, filename, cover_small, movie_path):
+def small_cover_check(path, filename, cover_small, movie_path, json_headers=None):
     full_filepath = Path(path) / filename
     if config.getInstance().download_only_missing_images() and not file_not_exist_or_empty(str(full_filepath)):
         return
-    download_file_with_filename(cover_small, filename, path, movie_path)
+    if json_headers != None:
+        download_file_with_filename(cover_small, filename, path, movie_path, json_headers['headers'])
+    else:
+        download_file_with_filename(cover_small, filename, path, movie_path)
     print('[+]Image Downloaded! ' + full_filepath.name)
 
 
@@ -113,61 +117,34 @@ def create_folder(json_data):  # 创建文件夹
 # =====================资源下载部分===========================
 
 # path = examle:photo , video.in the Project Folder!
-def download_file_with_filename(url, filename, path, filepath):
+def download_file_with_filename(url, filename, path, filepath, json_headers=None):
     conf = config.getInstance()
     configProxy = conf.proxy()
 
     for i in range(configProxy.retry):
         try:
-            if configProxy.enable:
-                if not os.path.exists(path):
-                    try:
-                        os.makedirs(path)
-                    except:
-                        print(f"[-]Fatal error! Can not make folder '{path}'")
-                        os._exit(0)
-                proxies = configProxy.proxies()
-                headers = {
-                    'User-Agent': G_USER_AGENT}
-                r = requests.get(url, headers=headers, timeout=configProxy.timeout, proxies=proxies)
-                if r == '':
-                    print('[-]Movie Download Data not found!')
-                    return
-                with open(os.path.join(path, filename), "wb") as code:
-                    code.write(r.content)
+            if not os.path.exists(path):
+                try:
+                    os.makedirs(path)
+                except:
+                    print(f"[-]Fatal error! Can not make folder '{path}'")
+                    os._exit(0)
+            r = get_html(url=url,return_type='content',json_headers=json_headers)
+            if r == '':
+                print('[-]Movie Download Data not found!')
                 return
-            else:
-                if not os.path.exists(path):
-                    try:
-                        os.makedirs(path)
-                    except:
-                        print(f"[-]Fatal error! Can not make folder '{path}'")
-                        os._exit(0)
-                headers = {
-                    'User-Agent': G_USER_AGENT}
-                r = requests.get(url, timeout=configProxy.timeout, headers=headers)
-                if r == '':
-                    print('[-]Movie Download Data not found!')
-                    return
-                with open(os.path.join(path, filename), "wb") as code:
-                    code.write(r.content)
-                return
-        except requests.exceptions.RequestException:
-            i += 1
-            print('[-]Image Download :  Connect retry ' + str(i) + '/' + str(configProxy.retry))
-        except requests.exceptions.ConnectionError:
-            i += 1
-            print('[-]Image Download :  Connect retry ' + str(i) + '/' + str(configProxy.retry))
+            with open(os.path.join(path, filename), "wb") as code:
+                code.write(r)
+            return
         except requests.exceptions.ProxyError:
             i += 1
-            print('[-]Image Download :  Connect retry ' + str(i) + '/' + str(configProxy.retry))
-        except requests.exceptions.ConnectTimeout:
-            i += 1
-            print('[-]Image Download :  Connect retry ' + str(i) + '/' + str(configProxy.retry))
-        except IOError:
-            print(f"[-]Create Directory '{path}' failed!")
-            moveFailedFolder(filepath)
-            return
+            print('[-]Image Download : Proxy error ' + str(i) + '/' + str(configProxy.retry))
+        # except IOError:
+        #     print(f"[-]Create Directory '{path}' failed!")
+        #     moveFailedFolder(filepath)
+        #     return
+        except Exception as e:
+            print('[-]Image Download :Error',e)
     print('[-]Connect Failed! Please check your Proxy or Network!')
     moveFailedFolder(filepath)
     return
@@ -226,13 +203,13 @@ def actor_photo_download(actors, save_dir, number):
 
 
 # 剧照下载成功，否则移动到failed
-def extrafanart_download(data, path, number, filepath):
+def extrafanart_download(data, path, number, filepath, json_data=None):
     if config.getInstance().extrafanart_thread_pool_download():
-        return extrafanart_download_threadpool(data, path, number)
-    extrafanart_download_one_by_one(data, path, filepath)
+        return extrafanart_download_threadpool(data, path, number, json_data)
+    extrafanart_download_one_by_one(data, path, filepath, json_data)
 
 
-def extrafanart_download_one_by_one(data, path, filepath):
+def extrafanart_download_one_by_one(data, path, filepath, json_data=None):
     tm_start = time.perf_counter()
     j = 1
     conf = config.getInstance()
@@ -244,13 +221,13 @@ def extrafanart_download_one_by_one(data, path, filepath):
         jpg_fullpath = os.path.join(path, jpg_filename)
         if download_only_missing_images and not file_not_exist_or_empty(jpg_fullpath):
             continue
-        if download_file_with_filename(url, jpg_filename, path, filepath) == 'failed':
+        if download_file_with_filename(url, jpg_filename, path, filepath, json_data) == 'failed':
             moveFailedFolder(filepath)
             return
         for i in range(configProxy.retry):
             if file_not_exist_or_empty(jpg_fullpath):
                 print('[!]Image Download Failed! Trying again. [{}/3]', i + 1)
-                download_file_with_filename(url, jpg_filename, path, filepath)
+                download_file_with_filename(url, jpg_filename, path, filepath, json_data)
                 continue
             else:
                 break
@@ -262,7 +239,7 @@ def extrafanart_download_one_by_one(data, path, filepath):
         print(f'[!]Extrafanart download one by one mode runtime {time.perf_counter() - tm_start:.3f}s')
 
 
-def extrafanart_download_threadpool(url_list, save_dir, number):
+def extrafanart_download_threadpool(url_list, save_dir, number,json_data=None):
     tm_start = time.perf_counter()
     conf = config.getInstance()
     extrafanart_dir = Path(save_dir) / conf.get_extrafanart()
@@ -278,7 +255,7 @@ def extrafanart_download_threadpool(url_list, save_dir, number):
     parallel = min(len(dn_list), conf.extrafanart_thread_pool_download())
     if parallel > 100:
         print('[!]Warrning: Parallel download thread too large may cause website ban IP!')
-    result = parallel_download_files(dn_list, parallel)
+    result = parallel_download_files(dn_list, parallel, json_data)
     failed = 0
     for i, r in enumerate(result, start=1):
         if not r:
@@ -300,19 +277,27 @@ def image_ext(url):
 
 
 # 封面是否下载成功，否则移动到failed
-def image_download(cover, fanart_path, thumb_path, path, filepath):
+def image_download(cover, fanart_path, thumb_path, path, filepath, json_headers=None):
     full_filepath = os.path.join(path, fanart_path)
     if config.getInstance().download_only_missing_images() and not file_not_exist_or_empty(full_filepath):
         return
-    if download_file_with_filename(cover, fanart_path, path, filepath) == 'failed':
-        moveFailedFolder(filepath)
-        return
+    if json_headers != None:
+        if download_file_with_filename(cover, fanart_path, path, filepath, json_headers['headers']) == 'failed':
+            moveFailedFolder(filepath)
+            return
+    else:
+        if download_file_with_filename(cover, fanart_path, path, filepath) == 'failed':
+            moveFailedFolder(filepath)
+            return
 
     configProxy = config.getInstance().proxy()
     for i in range(configProxy.retry):
         if file_not_exist_or_empty(full_filepath):
             print('[!]Image Download Failed! Trying again. [{}/3]', i + 1)
-            download_file_with_filename(cover, fanart_path, path, filepath)
+            if json_headers != None:
+                download_file_with_filename(cover, fanart_path, path, filepath, json_headers['headers'])
+            else:
+                download_file_with_filename(cover, fanart_path, path, filepath)
             continue
         else:
             break
@@ -353,8 +338,10 @@ def print_files(path, leak_word, c_word, naming_rule, part, cn_sub, json_data, f
             print("  <sorttitle><![CDATA[" + naming_rule + "]]></sorttitle>", file=code)
             print("  <customrating>JP-18+</customrating>", file=code)
             print("  <mpaa>JP-18+</mpaa>", file=code)
-            print("  <set>", file=code)
-            print("  </set>", file=code)
+            try:
+                print("  <set>" + series + "</set>", file=code)
+            except:
+                print("  <set></set>", file=code)
             print("  <studio>" + studio + "</studio>", file=code)
             print("  <year>" + year + "</year>", file=code)
             print("  <outline><![CDATA[" + outline + "]]></outline>", file=code)
@@ -368,6 +355,10 @@ def print_files(path, leak_word, c_word, naming_rule, part, cn_sub, json_data, f
                 for key in actor_list:
                     print("  <actor>", file=code)
                     print("    <name>" + key + "</name>", file=code)
+                    try:
+                        print("    <thumb>" + actor_photo.get(str(key)) + "</thumb>", file=code)
+                    except:
+                        pass
                     print("  </actor>", file=code)
             except:
                 aaaa = ''
@@ -384,7 +375,7 @@ def print_files(path, leak_word, c_word, naming_rule, part, cn_sub, json_data, f
             try:
                 for i in tag:
                     print("  <tag>" + i + "</tag>", file=code)
-                print("  <tag>" + series + "</tag>", file=code)
+                # print("  <tag>" + series + "</tag>", file=code)
             except:
                 aaaaa = ''
             if cn_sub == '1':
@@ -398,7 +389,7 @@ def print_files(path, leak_word, c_word, naming_rule, part, cn_sub, json_data, f
             try:
                 for i in tag:
                     print("  <genre>" + i + "</genre>", file=code)
-                print("  <genre>" + series + "</genre>", file=code)
+                # print("  <genre>" + series + "</genre>", file=code)
             except:
                 aaaaaaaa = ''
             print("  <num>" + number + "</num>", file=code)
@@ -413,8 +404,8 @@ def print_files(path, leak_word, c_word, naming_rule, part, cn_sub, json_data, f
                 except:
                     pass
             try:
-                f_rating = json_data['用户评分']
-                uc = json_data['评分人数']
+                f_rating = json_data.get('userrating')
+                uc = json_data.get('uservotes')
                 print(f"""  <rating>{round(f_rating * 2.0, 1)}</rating>
   <criticrating>{round(f_rating * 20.0, 1)}</criticrating>
   <ratings>
@@ -694,14 +685,14 @@ def debug_print(data: json):
         print("[+] ------- DEBUG INFO -------")
         for i, v in data.items():
             if i == 'outline':
-                print('[+]  -', "%-14s" % i, ':', len(v), 'characters')
+                print('[+]  -', "%-19s" % i, ':', len(v), 'characters')
                 continue
             if i == 'actor_photo' or i == 'year':
                 continue
             if i == 'extrafanart':
-                print('[+]  -', "%-14s" % i, ':', len(v), 'links')
+                print('[+]  -', "%-19s" % i, ':', len(v), 'links')
                 continue
-            print(f'[+]  - {i:<{cnspace(i,14)}} : {v}')
+            print(f'[+]  - {i:<{cnspace(i,19)}} : {v}')
 
         print("[+] ------- DEBUG INFO -------")
     except:
@@ -726,7 +717,7 @@ def core_main_no_net_op(movie_path, number):
         part = re.findall('[-_]CD\d+', movie_path, re.IGNORECASE)[0].upper()
         multi = True
     if re.search(r'[-_]C(\.\w+$|-\w+)|\d+ch(\.\w+$|-\w+)', movie_path,
-            re.I) or '中文' in movie_path or '字幕' in movie_path:
+            re.I) or '中文' in movie_path or '字幕' in movie_path or ".chs" in movie_path or '.cht' in movie_path:
         cn_sub = '1'
         c_word = '-C'  # 中文字幕影片后缀
     uncensored = 1 if is_uncensored(number) else 0
@@ -769,7 +760,7 @@ def core_main_no_net_op(movie_path, number):
         linkImage(path, number, part, leak_word, c_word, hack_word, ext)
 
 
-def core_main(movie_path, number_th, oCC):
+def core_main(movie_path, number_th, oCC, specified_source=None, specified_url=None):
     conf = config.getInstance()
     # =======================================================================初始化所需变量
     multi_part = 0
@@ -784,7 +775,7 @@ def core_main(movie_path, number_th, oCC):
     # 下面被注释的变量不需要
     #rootpath= os.getcwd
     number = number_th
-    json_data = get_data_from_json(number, oCC)  # 定义番号
+    json_data = get_data_from_json(number, oCC, specified_source, specified_url)  # 定义番号
 
     # Return if blank dict returned (data not found)
     if not json_data:
@@ -849,10 +840,16 @@ def core_main(movie_path, number_th, oCC):
 
         # 检查小封面, 如果image cut为3，则下载小封面
         if imagecut == 3:
-            small_cover_check(path, poster_path, json_data.get('cover_small'), movie_path)
+            if 'headers' in json_data:
+                small_cover_check(path, poster_path, json_data.get('cover_small'), movie_path, json_data)
+            else:
+                small_cover_check(path, poster_path, json_data.get('cover_small'), movie_path)
 
         # creatFolder会返回番号路径
-        image_download( cover, fanart_path,thumb_path, path, movie_path)
+        if 'headers' in json_data:
+            image_download(cover, fanart_path, thumb_path, path, movie_path, json_data)
+        else:
+            image_download(cover, fanart_path, thumb_path, path, movie_path)
 
         if not multi_part or part.lower() == '-cd1':
             try:
@@ -862,7 +859,10 @@ def core_main(movie_path, number_th, oCC):
 
                 # 下载剧照 data, path, filepath
                 if conf.is_extrafanart() and json_data.get('extrafanart'):
-                    extrafanart_download(json_data.get('extrafanart'), path, number, movie_path)
+                    if 'headers' in json_data:
+                        extrafanart_download(json_data.get('extrafanart'), path, number, movie_path, json_data)
+                    else:
+                        extrafanart_download(json_data.get('extrafanart'), path, number, movie_path)
 
                 # 下载演员头像 KODI .actors 目录位置
                 if conf.download_actor_photo_for_kodi():
@@ -903,10 +903,16 @@ def core_main(movie_path, number_th, oCC):
 
         # 检查小封面, 如果image cut为3，则下载小封面
         if imagecut == 3:
-            small_cover_check(path, poster_path, json_data.get('cover_small'), movie_path)
+            if 'headers' in json_data:
+                small_cover_check(path, poster_path, json_data.get('cover_small'), movie_path, json_data)
+            else:
+                small_cover_check(path, poster_path, json_data.get('cover_small'), movie_path)
 
         # creatFolder会返回番号路径
-        image_download( cover, fanart_path, thumb_path, path, movie_path)
+        if 'headers' in json_data:
+            image_download(cover, fanart_path, thumb_path, path, movie_path, json_data)
+        else:
+            image_download(cover, fanart_path, thumb_path, path, movie_path)
 
         if not multi_part or part.lower() == '-cd1':
             try:
@@ -916,7 +922,10 @@ def core_main(movie_path, number_th, oCC):
 
                 # 下载剧照 data, path, filepath
                 if conf.is_extrafanart() and json_data.get('extrafanart'):
-                    extrafanart_download(json_data.get('extrafanart'), path, number, movie_path)
+                    if 'headers' in json_data:
+                        extrafanart_download(json_data.get('extrafanart'), path, number, movie_path, json_data)
+                    else:
+                        extrafanart_download(json_data.get('extrafanart'), path, number, movie_path)
 
                 # 下载演员头像 KODI .actors 目录位置
                 if conf.download_actor_photo_for_kodi():

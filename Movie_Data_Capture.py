@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import random
 import re
 import sys
 import time
@@ -82,6 +83,8 @@ def argparse_function(ver: str) -> typing.Tuple[str, str, str, str, bool, bool]:
                         help="""Only show job list of files and numbers, and **NO** actual operation
 is performed. It may help you correct wrong numbers before real job.""")
     parser.add_argument("-v", "--version", action="version", version=ver)
+    parser.add_argument("-ss", "--specified-source", default='', nargs='?', help="specified Source.")
+    parser.add_argument("-su", "--specified-url", default='', nargs='?', help="specified Url.")
 
     args = parser.parse_args()
 
@@ -119,7 +122,7 @@ is performed. It may help you correct wrong numbers before real job.""")
         if no_net_op:
             conf.set_override("common:stop_counter=0;rerun_delay=0s;face:aways_imagecut=1")
 
-    return args.file, args.number, args.logdir, args.regexstr, args.zero_op, no_net_op
+    return args.file, args.number, args.logdir, args.regexstr, args.zero_op, no_net_op, args.specified_source, args.specified_url
 
 
 class OutLogger(object):
@@ -366,8 +369,8 @@ def movie_lists(source_folder, regexstr: str) -> typing.List[str]:
             continue  # 模式不等于3下跳过软连接和未配置硬链接刮削
         # 调试用0字节样本允许通过，去除小于120MB的广告'苍老师强力推荐.mp4'(102.2MB)'黑道总裁.mp4'(98.4MB)'有趣的妹子激情表演.MP4'(95MB)'有趣的臺灣妹妹直播.mp4'(15.1MB)
         movie_size = 0 if is_sym else full_name.stat().st_size  # 同上 符号链接不取stat()及st_size，直接赋0跳过小视频检测
-        if 0 < movie_size < 125829120:  # 1024*1024*120=125829120
-            continue
+        # if 0 < movie_size < 125829120:  # 1024*1024*120=125829120
+        #     continue
         if cliRE and not cliRE.search(absf) or trailerRE.search(full_name.name):
             continue
         if main_mode == 3:
@@ -486,13 +489,13 @@ def create_data_and_move(movie_path: str, zero_op: bool, no_net_op: bool, oCC):
                 print('[!]', err)
 
 
-def create_data_and_move_with_custom_number(file_path: str, custom_number, oCC):
+def create_data_and_move_with_custom_number(file_path: str, custom_number, oCC, specified_source, specified_url):
     conf = config.getInstance()
     file_name = os.path.basename(file_path)
     try:
         print("[!] [{1}] As Number Processing for '{0}'".format(file_path, custom_number))
         if custom_number:
-            core_main(file_path, custom_number, oCC)
+            core_main(file_path, custom_number, oCC, specified_source, specified_url)
         else:
             print("[-] number empty ERROR")
         print("[*]======================================================")
@@ -512,7 +515,7 @@ def create_data_and_move_with_custom_number(file_path: str, custom_number, oCC):
 
 
 def main(args: tuple) -> Path:
-    (single_file_path, custom_number, logdir, regexstr, zero_op, no_net_op) = args
+    (single_file_path, custom_number, logdir, regexstr, zero_op, no_net_op, specified_source, specified_url) = args
     conf = config.getInstance()
     main_mode = conf.main_mode()
     folder_path = ""
@@ -590,6 +593,7 @@ def main(args: tuple) -> Path:
         print("[!] " + "Mapping Table Download FAILED".center(47))
         print("[!] " + "无法连接github".center(47))
         print("[!] " + "请过几小时再试试".center(47))
+        print("[!]", e)
         print("[-] " + "------ AUTO EXIT AFTER 30s !!! ------ ".center(47))
         time.sleep(30)
         os._exit(-1)
@@ -607,9 +611,11 @@ def main(args: tuple) -> Path:
         print('[+]==================== Single File =====================')
         if custom_number == '':
             create_data_and_move_with_custom_number(single_file_path,
-                                                    get_number(conf.debug(), os.path.basename(single_file_path)), oCC)
+                                                    get_number(conf.debug(), os.path.basename(single_file_path)), oCC,
+                                                    specified_source, specified_url)
         else:
-            create_data_and_move_with_custom_number(single_file_path, custom_number, oCC)
+            create_data_and_move_with_custom_number(single_file_path, custom_number, oCC,
+                                                    specified_source, specified_url)
     else:
         folder_path = conf.source_folder()
         if not isinstance(folder_path, str) or folder_path == '':
@@ -636,6 +642,8 @@ def main(args: tuple) -> Path:
             if count >= stop_count:
                 print("[!]Stop counter triggered!")
                 break
+            sleep_seconds = random.randint(conf.sleep(), conf.sleep() + 2)
+            time.sleep(sleep_seconds)
 
     if conf.del_empty_folder() and not zero_op:
         rm_empty_folder(conf.success_folder())
@@ -674,7 +682,7 @@ def period(delta, pattern):
 
 
 if __name__ == '__main__':
-    version = '6.1.2'
+    version = '6.3.1'
     urllib3.disable_warnings()  # Ignore http proxy warning
     app_start = time.time()
 

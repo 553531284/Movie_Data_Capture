@@ -18,6 +18,8 @@ def get_number(debug: bool, file_path: str) -> str:
     'snis-829'
     >>> get_number(False, "/Users/Guest/AV_Data_Capture/snis-829-C.mp4")
     'snis-829'
+    >>> get_number(False, "/Users/Guest/AV_Data_Capture/[脸肿字幕组][PoRO]牝教師4～穢された教壇～ 「生意気ドジっ娘女教師・美結～高飛車ハメ堕ち2濁金」[720p][x264_aac].mp4")
+    '牝教師4～穢された教壇～ 「生意気ドジっ娘女教師・美結～高飛車ハメ堕ち2濁金」'
     >>> get_number(False, "C:¥Users¥Guest¥snis-829.mp4")
     'snis-829'
     >>> get_number(False, "C:¥Users¥Guest¥snis-829-C.mp4")
@@ -40,6 +42,12 @@ def get_number(debug: bool, file_path: str) -> str:
     try:
         file_number = get_number_by_dict(filepath)
         if file_number:
+            return file_number
+        elif '字幕组' in filepath or 'SUB' in filepath.upper() or re.match(r'[\u30a0-\u30ff]+', filepath):
+            filepath = G_spat.sub("", filepath)
+            filepath = re.sub("\[.*?\]","",filepath)
+            filepath = filepath.replace(".chs", "").replace(".cht", "")
+            file_number = str(re.findall(r'(.+?)\.', filepath)).strip(" [']")
             return file_number
         elif '-' in filepath or '_' in filepath:  # 普通提取番号 主要处理包含减号-和_的番号
             filepath = G_spat.sub("", filepath)
@@ -71,7 +79,33 @@ def get_number(debug: bool, file_path: str) -> str:
         if debug:
             print(f'[-]Number Parser exception: {e} [{file_path}]')
         return None
+        
+# modou提取number
+def md(filename):
+    m = re.search(r'(md[a-z]{0,2}-?)(\d{2,})(-ep\d*)*', filename, re.I)
+    return f'{m.group(1).replace("-","").upper()}{m.group(2).zfill(4)}{m.group(3) or ""}'
 
+def mmz(filename):
+    m = re.search(r'(mmz-?)(\d{2,})(-ep\d*)*', filename, re.I)
+    return f'{m.group(1).replace("-","").upper()}{m.group(2).zfill(3)}{m.group(3) or ""}'
+
+def msd(filename):
+    m = re.search(r'(msd-?)(\d{2,})(-ep\d*)*', filename, re.I)
+    return f'{m.group(1).replace("-","").upper()}{m.group(2).zfill(3)}{m.group(3) or ""}'
+
+def mky(filename):
+    m = re.search(r'(mky-[a-z]{2,2}-?)(\d{2,})(-ep\d*)*', filename, re.I)
+    return f'{m.group(1).replace("-","").upper()}{m.group(2).zfill(3)}{m.group(3) or ""}'
+
+def yk(filename):
+    m = re.search(r'(yk-?)(\d{2,})(-ep\d*)*', filename, re.I)
+    return f'{m.group(1).replace("-","").upper()}{m.group(2).zfill(3)}{m.group(3) or ""}'
+
+def pm(filename):
+    m = re.search(r'(pm[a-z]?-?)(\d{2,})(-ep\d*)*', filename, re.I)
+    return f'{m.group(1).replace("-","").upper()}{m.group(2).zfill(3)}{m.group(3) or ""}'   
+   
+   
 
 # 按javdb数据源的命名规范提取number
 G_TAKE_NUM_RULES = {
@@ -82,7 +116,13 @@ G_TAKE_NUM_RULES = {
     'x-art': lambda x: str(re.search(r'x-art\.\d{2}\.\d{2}\.\d{2}', x, re.I).group()),
     'xxx-av': lambda x: ''.join(['xxx-av-', re.findall(r'xxx-av[^\d]*(\d{3,5})[^\d]*', x, re.I)[0]]),
     'heydouga': lambda x: 'heydouga-' + '-'.join(re.findall(r'(\d{4})[\-_](\d{3,4})[^\d]*', x, re.I)[0]),
-    'heyzo': lambda x: 'HEYZO-' + re.findall(r'heyzo[^\d]*(\d{4})', x, re.I)[0]
+    'heyzo': lambda x: 'HEYZO-' + re.findall(r'heyzo[^\d]*(\d{4})', x, re.I)[0],
+    r'\bmd[a-z]{0,2}-\d{2,}': md,
+    r'\bmmz-\d{2,}':mmz,
+    r'\bmsd-\d{2,}':msd,
+    r'\bmky-[a-z]{2,2}-\d{2,}':mky,
+    r'\byk-\d{2,3}': yk,
+    r'\bpm[a-z]?-?\d{2,}':pm
 }
 
 
@@ -168,6 +208,9 @@ if __name__ == "__main__":
         "rctd-461CH-CD2.mp4",  # ch后可加CDn
         "rctd-461-Cd3-C.mp4",  # CDn后可加-C
         "rctd-461-C-cD4.mp4",  # cD1 Cd1 cd1 CD1 最终生成.nfo时统一为大写CD1
+        "MD-123.ts",
+        "MDSR-0001-ep2.ts",
+        "MKY-NS-001.mp4"
     )
 
 

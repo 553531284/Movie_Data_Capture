@@ -29,7 +29,7 @@ def getXpathSingle(htmlcode, xpath):
 
 G_USER_AGENT = r'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.133 Safari/537.36'
 
-def get_html(url, cookies: dict = None, ua: str = None, return_type: str = None, encoding: str = None):
+def get_html(url, cookies: dict = None, ua: str = None, return_type: str = None, encoding: str = None, json_headers = None):
     """
     网页请求核心函数
     """
@@ -38,6 +38,8 @@ def get_html(url, cookies: dict = None, ua: str = None, return_type: str = None,
     errors = ""
 
     headers = {"User-Agent": ua or G_USER_AGENT}  # noqa
+    if json_headers != None:
+        headers.update(json_headers)
 
     for i in range(configProxy.retry):
         try:
@@ -145,6 +147,8 @@ def get_html_session(url: str = None, cookies: dict = None, ua: str = None, retu
             return result.text
     except requests.exceptions.ProxyError:
         print("[-]get_html_session() Proxy error! Please check your Proxy")
+    except requests.exceptions.RequestException:
+        pass
     except Exception as e:
         print(f"[-]get_html_session() failed. {e}")
     return None
@@ -466,15 +470,12 @@ def download_file_with_filename(url: str, filename: str, path: str) -> None:
                     except:
                         print(f"[-]Fatal error! Can not make folder '{path}'")
                         os._exit(0)
-                proxies = configProxy.proxies()
-                headers = {
-                    'User-Agent': G_USER_AGENT}
-                r = requests.get(url, headers=headers, timeout=configProxy.timeout, proxies=proxies)
+                r = get_html(url=url, return_type='content')
                 if r == '':
                     print('[-]Movie Download Data not found!')
                     return
                 with open(os.path.join(path, filename), "wb") as code:
-                    code.write(r.content)
+                    code.write(r)
                 return
             else:
                 if not os.path.exists(path):
@@ -483,14 +484,12 @@ def download_file_with_filename(url: str, filename: str, path: str) -> None:
                     except:
                         print(f"[-]Fatal error! Can not make folder '{path}'")
                         os._exit(0)
-                headers = {
-                    'User-Agent': G_USER_AGENT}
-                r = requests.get(url, timeout=configProxy.timeout, headers=headers)
+                r = get_html(url=url, return_type='content')
                 if r == '':
                     print('[-]Movie Download Data not found!')
                     return
                 with open(os.path.join(path, filename), "wb") as code:
-                    code.write(r.content)
+                    code.write(r)
                 return
         except requests.exceptions.RequestException:
             i += 1
@@ -518,15 +517,18 @@ def download_one_file(args) -> str:
     wrapped for map function
     """
 
-    (url, save_path) = args
-    filebytes = get_html(url, return_type='content')
+    (url, save_path, json_headers) = args
+    if json_headers != None:
+        filebytes = get_html(url, return_type='content', json_headers=json_headers['headers'])
+    else:
+        filebytes = get_html(url, return_type='content')
     if isinstance(filebytes, bytes) and len(filebytes):
         with save_path.open('wb') as fpbyte:
             if len(filebytes) == fpbyte.write(filebytes):
                 return str(save_path)
 
 
-def parallel_download_files(dn_list: typing.Iterable[typing.Sequence], parallel: int = 0):
+def parallel_download_files(dn_list: typing.Iterable[typing.Sequence], parallel: int = 0, json_headers=None):
     """
     download files in parallel 多线程下载文件
 
@@ -545,7 +547,7 @@ def parallel_download_files(dn_list: typing.Iterable[typing.Sequence], parallel:
                 and fullpath and isinstance(fullpath, (str, Path)) and len(str(fullpath)):
             fullpath = Path(fullpath)
             fullpath.parent.mkdir(parents=True, exist_ok=True)
-            mp_args.append((url, fullpath))
+            mp_args.append((url, fullpath, json_headers))
     if not len(mp_args):
         return []
     if not isinstance(parallel, int) or parallel not in range(1, 200):

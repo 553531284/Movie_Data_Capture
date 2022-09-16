@@ -28,12 +28,6 @@ class Getchu():
         return dic
 
 class wwwGetchu(Parser):
-    imagecut = 0
-    allow_number_change = True
-
-    cookies = {'getchu_adalt_flag': 'getchu.com', "adult_check_flag": "1"}
-    GETCHU_WWW_SEARCH_URL = 'http://www.getchu.com/php/search.phtml?genre=anime_dvd&search_keyword=_WORD_&check_key_dtl=1&submit='
-
     expr_title = '//*[@id="soft-title"]/text()'
     expr_cover = '//head/meta[@property="og:image"]/@content'
     expr_director = "//td[contains(text(),'ブランド')]/following-sibling::td/a[1]/text()"
@@ -46,13 +40,19 @@ class wwwGetchu(Parser):
     expr_extrafanart = "//div[contains(text(),'サンプル画像')]/following-sibling::div/a/@href"
     expr_series = "//td[contains(text(),'ジャンル：')]/following-sibling::td/text()"
 
+    def extraInit(self):
+        self.imagecut = 0
+        self.allow_number_change = True
+
+        self.cookies = {'getchu_adalt_flag': 'getchu.com', "adult_check_flag": "1"}
+        self.GETCHU_WWW_SEARCH_URL = 'http://www.getchu.com/php/search.phtml?genre=anime_dvd&search_keyword=_WORD_&check_key_dtl=1&submit='
+
     def queryNumberUrl(self, number):
         if 'GETCHU' in number.upper():
             idn = re.findall('\d+',number)[0]
             return "http://www.getchu.com/soft.phtml?id=" + idn
         else:
-            self.number = quote(number, encoding="euc_jp")
-            queryUrl = self.GETCHU_WWW_SEARCH_URL.replace("_WORD_", self.number)
+            queryUrl = self.GETCHU_WWW_SEARCH_URL.replace("_WORD_", quote(number, encoding="euc_jp"))
         # NOTE dont know why will try 2 times
         retry = 2
         for i in range(retry):
@@ -77,6 +77,12 @@ class wwwGetchu(Parser):
             outline = outline + i.strip()
         return outline
 
+    def getCover(self, htmltree):
+        url = super().getCover(htmltree)
+        if "getchu.com" in url:
+            return url
+        return "http://www.getchu.com" + url
+
     def getExtrafanart(self, htmltree):
         arts = super().getExtrafanart(htmltree)
         extrafanart = []
@@ -96,16 +102,6 @@ class dlGetchu(wwwGetchu):
     """ 二者基本一致
     headers extrafanart 略有区别
     """
-
-    imagecut = 4
-    allow_number_change = True
-
-    cookies = {"adult_check_flag": "1"}
-    extraheader = {"Referer": "https://dl.getchu.com/"}
-
-    GETCHU_DL_SEARCH_URL = 'https://dl.getchu.com/search/search_list.php?dojin=1&search_category_id=&search_keyword=_WORD_&btnWordSearch=%B8%A1%BA%F7&action=search&set_category_flag=1'
-    GETCHU_DL_URL = 'https://dl.getchu.com/i/item_WORD_'
-
     expr_title = "//div[contains(@style,'color: #333333; padding: 3px 0px 0px 5px;')]/text()"
     expr_director = "//td[contains(text(),'作者')]/following-sibling::td/text()"
     expr_studio = "//td[contains(text(),'サークル')]/following-sibling::td/a/text()"
@@ -117,11 +113,21 @@ class dlGetchu(wwwGetchu):
     expr_extrafanart = "//td[contains(@style,'background-color: #444444;')]/a/@href"
     expr_series = "//td[contains(text(),'サークル')]/following-sibling::td/a/text()"
 
+    def extraInit(self):
+        self.imagecut = 4
+        self.allow_number_change = True
+
+        self.cookies = {"adult_check_flag": "1"}
+        self.extraheader = {"Referer": "https://dl.getchu.com/"}
+
+        self.GETCHU_DL_SEARCH_URL = 'https://dl.getchu.com/search/search_list.php?dojin=1&search_category_id=&search_keyword=_WORD_&btnWordSearch=%B8%A1%BA%F7&action=search&set_category_flag=1'
+        self.GETCHU_DL_URL = 'https://dl.getchu.com/i/item_WORD_'
+
     def queryNumberUrl(self, number):
         if "item" in number or 'GETCHU' in number.upper():
             self.number = re.findall('\d+',number)[0]
         else:
-            queryUrl = self.GETCHU_DL_SEARCH_URL.replace("_WORD_", number)
+            queryUrl = self.GETCHU_DL_SEARCH_URL.replace("_WORD_", quote(number, encoding="euc_jp"))
             queryTree = self.getHtmlTree(queryUrl)
             detailurl = self.getTreeElement(queryTree, '/html/body/div[1]/table/tr/td/table[4]/tr/td[2]/table/tr[2]/td/table/tr/td/table/tr/td[2]/div/a[1]/@href')
             if detailurl == "":

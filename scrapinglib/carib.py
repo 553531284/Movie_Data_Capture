@@ -8,7 +8,6 @@ from .parser import Parser
 
 class Carib(Parser):
     source = 'carib'
-    uncensored = True
 
     expr_title = "//div[@class='movie-info section']/div[@class='heading']/h1[@itemprop='name']/text()"
     expr_release = "//li[2]/span[@class='spec-content']/text()"
@@ -19,6 +18,10 @@ class Carib(Parser):
     expr_label = "//span[@class='spec-title'][contains(text(),'シリーズ')]/../span[@class='spec-content']/a/text()"
     expr_series = "//span[@class='spec-title'][contains(text(),'シリーズ')]/../span[@class='spec-content']/a/text()"
     expr_outline = "//div[@class='movie-info section']/p[@itemprop='description']/text()"
+
+    def extraInit(self):
+        self.imagecut = 1
+        self.uncensored = True
 
     def search(self, number):
         self.number = number
@@ -60,6 +63,9 @@ class Carib(Parser):
             else:
                 r.append('https://www.caribbeancom.com' + jpg)
         return r
+
+    def getTrailer(self, htmltree):
+        return f'https://smovie.caribbeancom.com/sample/movies/{self.number}/1080p.mp4'
 
     def getActorPhoto(self, htmltree):
         htmla = htmltree.xpath("//*[@id='moviepages']/div[@class='container']/div[@class='inner-container']/div[@class='movie-info section']/ul/li[@class='movie-spec']/span[@class='spec-content']/a[@itemprop='actor']")

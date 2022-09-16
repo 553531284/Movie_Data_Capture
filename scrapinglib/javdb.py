@@ -11,9 +11,6 @@ from .parser import Parser
 class Javdb(Parser):
     source = 'javdb'
 
-    fixstudio = False
-    noauth = False
-
     expr_number = '//strong[contains(text(),"番號")]/../span/text()'
     expr_number2 = '//strong[contains(text(),"番號")]/../span/a/text()'
     expr_title = "/html/head/title/text()"
@@ -44,6 +41,10 @@ class Javdb(Parser):
     expr_uservotes = '//span[@class="score-stars"]/../text()'
     expr_actorphoto = '//strong[contains(text(),"演員:")]/../span/a[starts-with(@href,"/actors/")]'
 
+    def extraInit(self):
+        self.fixstudio = False
+        self.noauth = False
+
     def updateCore(self, core):
         if core.proxies:
             self.proxies = core.proxies
@@ -51,6 +52,8 @@ class Javdb(Parser):
             self.verify = core.verify
         if core.morestoryline:
             self.morestoryline = True
+        if core.specifiedSource == self.source:
+            self.specifiedUrl = core.specifiedUrl
         # special
         if core.dbcookies:
             self.cookies = core.dbcookies
@@ -83,7 +86,7 @@ class Javdb(Parser):
         try:
             resp = self.session.get(javdb_url)
         except Exception as e:
-            print(e)
+            #print(e)
             raise Exception(f'[!] {self.number}: page not fond in javdb')
 
         self.querytree = etree.fromstring(resp.text, etree.HTMLParser()) 

@@ -213,6 +213,12 @@ class Config:
     def mapping_table_validity(self) -> int:
         return self.conf.getint("common", "mapping_table_validity")
 
+    def donot_save_tags(self) -> int:
+        return self.conf.getint("common", "donot_save_tags")
+
+    def actor_only_tag(self) -> bool:
+        return self.conf.getboolean("common", "actor_only_tag")
+
     def sleep(self) -> int:
         return self.conf.getint("common", "sleep")
 
@@ -325,6 +331,12 @@ class Config:
         except:
             return 50
 
+    def image_naming_with_number(self) -> bool:
+        try:
+            return self.conf.getboolean("Name_Rule", "image_naming_with_number")
+        except:
+            return False
+
     def update_check(self) -> bool:
         try:
             return self.conf.getboolean("update", "update_check")
@@ -431,6 +443,7 @@ class Config:
         conf.set(sec1, "ignore_failed_list", 0)
         conf.set(sec1, "download_only_missing_images", 1)
         conf.set(sec1, "mapping_table_validity", 7)
+        conf.set(sec1, "donot_save_tags", 0)
 
         sec2 = "advenced_sleep"
         conf.add_section(sec2)
@@ -563,8 +576,10 @@ class IniProxy():
         self.proxytype = proxytype
 
     def proxies(self):
-        ''' 获得代理参数，默认http代理
-        '''
+        """
+        获得代理参数，默认http代理
+        get proxy params, use http proxy for default
+        """
         if self.address:
             if self.proxytype in self.SUPPORT_PROXY_TYPE:
                 proxies = {"http": self.proxytype + "://" + self.address,

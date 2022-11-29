@@ -1,15 +1,34 @@
+# build-in lib
 import json
 import secrets
-import config
-from lxml import etree
+import typing
 from pathlib import Path
 
-from ADC_function import delete_all_elements_in_list, delete_all_elements_in_str, file_modification_days, load_cookies, translate
+# third party lib
+import opencc
+from lxml import etree
+# project wide definitions
+import config
+from ADC_function import (translate,
+                          load_cookies,
+                          file_modification_days,
+                          delete_all_elements_in_str,
+                          delete_all_elements_in_list
+                          )
 from scrapinglib.api import search
 
-def get_data_from_json(file_number, oCC, specified_source, specified_url):
+
+def get_data_from_json(
+        file_number: str,
+        open_cc: opencc.OpenCC,
+        specified_source: str, specified_url: str) -> typing.Optional[dict]:
     """
-    iterate through all services and fetch the data 从JSON返回元数据
+    iterate through all services and fetch the data 从网站上查询片名解析JSON返回元数据
+    :param file_number: 影片名称
+    :param open_cc: 简繁转换器
+    :param specified_source: 指定的媒体数据源
+    :param specified_url: 指定的数据查询地址, 目前未使用
+    :return 给定影片名称的具体信息
     """
 
     actor_mapping_data = etree.parse(str(Path.home() / '.local' / 'share' / 'mdc' / 'mapping_actor.xml'))
@@ -21,17 +40,19 @@ def get_data_from_json(file_number, oCC, specified_source, specified_url):
 
     # TODO 准备参数
     # - 清理 ADC_function, webcrawler
-    proxies = None
-    configProxy = conf.proxy()
-    if configProxy.enable:
-        proxies = configProxy.proxies()
-    
+    proxies: dict = None
+    config_proxy = conf.proxy()
+    if config_proxy.enable:
+        proxies = config_proxy.proxies()
+
+    # javdb website logic
+    # javdb have suffix
     javdb_sites = conf.javdb_sites().split(',')
     for i in javdb_sites:
         javdb_sites[javdb_sites.index(i)] = "javdb" + i
     # javdb_sites.append("javdb")
     # 不加载过期的cookie，javdb登录界面显示为7天免登录，故假定cookie有效期为7天
-    has_json = False
+    has_valid_cookie = False
     for cj in javdb_sites:
         javdb_site = cj
         cookie_json = javdb_site + '.json'
@@ -40,19 +61,21 @@ def get_data_from_json(file_number, oCC, specified_source, specified_url):
             cdays = file_modification_days(cookies_filepath)
             if cdays < 7:
                 javdb_cookies = cookies_dict
-                has_json = True
+                has_valid_cookie = True
                 break
             elif cdays != 9999:
-                print(f'[!]Cookies file {cookies_filepath} was updated {cdays} days ago, it will not be used for HTTP requests.')
-    if not has_json:
+                print(
+                    f'[!]Cookies file {cookies_filepath} was updated {cdays} days ago, it will not be used for HTTP requests.')
+    if not has_valid_cookie:
+        # get real random site from javdb_sites, because random is not really random when the seed value is known
         javdb_site = secrets.choice(javdb_sites)
         javdb_cookies = None
 
-    cacert =None
+    ca_cert = None
     if conf.cacert_file():
-        cacert = conf.cacert_file()
+        ca_cert = conf.cacert_file()
 
-    json_data = search(file_number, sources, proxies=proxies, verify=cacert,
+    json_data = search(file_number, sources, proxies=proxies, verify=ca_cert,
                         dbsite=javdb_site, dbcookies=javdb_cookies,
                         morestoryline=conf.is_storyline(),
                         specifiedSource=specified_source, specifiedUrl=specified_url,
@@ -178,21 +201,24 @@ def get_data_from_json(file_number, oCC, specified_source, specified_url):
             if len(t):
                 json_data[translate_value] = special_characters_replacement(t)
 
-    if oCC:
+    if open_cc:
         cc_vars = conf.cc_convert_vars().split(",")
         ccm = conf.cc_convert_mode()
-        def convert_list(mapping_data,language,vars):
+
+        def convert_list(mapping_data, language, vars):
             total = []
             for i in vars:
                 if len(mapping_data.xpath('a[contains(@keyword, $name)]/@' + language, name=f",{i},")) != 0:
                     i = mapping_data.xpath('a[contains(@keyword, $name)]/@' + language, name=f",{i},")[0]
                 total.append(i)
             return total
-        def convert(mapping_data,language,vars):
+
+        def convert(mapping_data, language, vars):
             if len(mapping_data.xpath('a[contains(@keyword, $name)]/@' + language, name=vars)) != 0:
                 return mapping_data.xpath('a[contains(@keyword, $name)]/@' + language, name=vars)[0]
             else:
                 raise IndexError('keyword not found')
+
         for cc in cc_vars:
             if json_data[cc] == "" or len(json_data[cc]) == 0:
                 continue
@@ -208,8 +234,8 @@ def get_data_from_json(file_number, oCC, specified_source, specified_url):
                         json_data['actor_list'] = convert_list(actor_mapping_data, "jp", json_data['actor_list'])
                         json_data['actor'] = convert(actor_mapping_data, "jp", json_data['actor'])
                 except:
-                    json_data['actor_list'] = [oCC.convert(aa) for aa in json_data['actor_list']]
-                    json_data['actor'] = oCC.convert(json_data['actor'])
+                    json_data['actor_list'] = [open_cc.convert(aa) for aa in json_data['actor_list']]
+                    json_data['actor'] = open_cc.convert(json_data['actor'])
             elif cc == "tag":
                 try:
                     if ccm == 1:
@@ -222,7 +248,7 @@ def get_data_from_json(file_number, oCC, specified_source, specified_url):
                         json_data[cc] = convert_list(info_mapping_data, "jp", json_data[cc])
                         json_data[cc] = delete_all_elements_in_list("删除", json_data[cc])
                 except:
-                    json_data[cc] = [oCC.convert(t) for t in json_data[cc]]
+                    json_data[cc] = [open_cc.convert(t) for t in json_data[cc]]
             else:
                 try:
                     if ccm == 1:
@@ -235,11 +261,11 @@ def get_data_from_json(file_number, oCC, specified_source, specified_url):
                         json_data[cc] = convert(info_mapping_data, "jp", json_data[cc])
                         json_data[cc] = delete_all_elements_in_str("删除", json_data[cc])
                 except IndexError:
-                    json_data[cc] = oCC.convert(json_data[cc])
+                    json_data[cc] = open_cc.convert(json_data[cc])
                 except:
                     pass
 
-    naming_rule=""
+    naming_rule = ""
     for i in conf.naming_rule().split("+"):
         if i not in json_data:
             naming_rule += i.strip("'").strip('"')
@@ -254,17 +280,17 @@ def get_data_from_json(file_number, oCC, specified_source, specified_url):
 def special_characters_replacement(text) -> str:
     if not isinstance(text, str):
         return text
-    return (text.replace('\\', '∖').     # U+2216 SET MINUS @ Basic Multilingual Plane
-                replace('/', '∕').       # U+2215 DIVISION SLASH @ Basic Multilingual Plane
-                replace(':', '꞉').       # U+A789 MODIFIER LETTER COLON @ Latin Extended-D
-                replace('*', '∗').       # U+2217 ASTERISK OPERATOR @ Basic Multilingual Plane
-                replace('?', '？').      # U+FF1F FULLWIDTH QUESTION MARK @ Basic Multilingual Plane
-                replace('"', '＂').      # U+FF02 FULLWIDTH QUOTATION MARK @ Basic Multilingual Plane
-                replace('<', 'ᐸ').       # U+1438 CANADIAN SYLLABICS PA @ Basic Multilingual Plane
-                replace('>', 'ᐳ').       # U+1433 CANADIAN SYLLABICS PO @ Basic Multilingual Plane
-                replace('|', 'ǀ').       # U+01C0 LATIN LETTER DENTAL CLICK @ Basic Multilingual Plane
-                replace('&lsquo;', '‘'). # U+02018 LEFT SINGLE QUOTATION MARK
-                replace('&rsquo;', '’'). # U+02019 RIGHT SINGLE QUOTATION MARK
-                replace('&hellip;','…').
-                replace('&amp;', '＆')
+    return (text.replace('\\', '∖').  # U+2216 SET MINUS @ Basic Multilingual Plane
+            replace('/', '∕').  # U+2215 DIVISION SLASH @ Basic Multilingual Plane
+            replace(':', '꞉').  # U+A789 MODIFIER LETTER COLON @ Latin Extended-D
+            replace('*', '∗').  # U+2217 ASTERISK OPERATOR @ Basic Multilingual Plane
+            replace('?', '？').  # U+FF1F FULLWIDTH QUESTION MARK @ Basic Multilingual Plane
+            replace('"', '＂').  # U+FF02 FULLWIDTH QUOTATION MARK @ Basic Multilingual Plane
+            replace('<', 'ᐸ').  # U+1438 CANADIAN SYLLABICS PA @ Basic Multilingual Plane
+            replace('>', 'ᐳ').  # U+1433 CANADIAN SYLLABICS PO @ Basic Multilingual Plane
+            replace('|', 'ǀ').  # U+01C0 LATIN LETTER DENTAL CLICK @ Basic Multilingual Plane
+            replace('&lsquo;', '‘').  # U+02018 LEFT SINGLE QUOTATION MARK
+            replace('&rsquo;', '’').  # U+02019 RIGHT SINGLE QUOTATION MARK
+            replace('&hellip;', '…').
+            replace('&amp;', '＆')
             )

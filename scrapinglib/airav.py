@@ -142,7 +142,11 @@ class Airav(Parser):
             result = self.javbus.get('cover')
             if isinstance(result, str) and len(result):
                 return result
-        return super().getCover(htmltree)
+        try:
+            result = htmltree["img_url"]
+        except:
+            result = ""
+        return result
 
     def getSeries(self, htmltree):
         if self.addtion_Javbus:

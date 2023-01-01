@@ -197,7 +197,7 @@ class Scraping:
                     if 'source' not in other_json_data:
                         break
                     # check other sources
-                    other_sources = sources[sources.index(other_json_data['source']) + 1:]
+                    other_sources = other_sources[other_sources.index(other_json_data['source']) + 1:]
                 except:
                     pass
             

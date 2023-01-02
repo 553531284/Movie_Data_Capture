@@ -126,7 +126,7 @@ G_TAKE_NUM_RULES = {
     'heyzo': lambda x: 'HEYZO-' + re.findall(r'heyzo[^\d]*(\d{4})', x, re.I)[0],
     'mdbk': lambda x: str(re.search(r'mdbk(-|_)(\d{4})', x, re.I).group()),
     'mdtm': lambda x: str(re.search(r'mdtm(-|_)(\d{4})', x, re.I).group()),
-    r'\bmd[a-z]{0,2}-\d{2,}': md,
+    # r'\bmd[a-z]{0,2}-\d{2,}': md,
     r'\bmmz-\d{2,}':mmz,
     r'\bmsd-\d{2,}':msd,
     r'\bmky-[a-z]{2,2}-\d{2,}':mky,

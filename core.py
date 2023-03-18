@@ -342,7 +342,7 @@ def print_files(path, leak_word, c_word, naming_rule, part, cn_sub, json_data, f
         with open(nfo_path, "wt", encoding='UTF-8') as code:
             print('<?xml version="1.0" encoding="UTF-8" ?>', file=code)
             print("<movie>", file=code)
-            if not config.getInstance().jellyfin():
+            if config.getInstance().jellyfin():
                 print("  <title><![CDATA[" + naming_rule + "]]></title>", file=code)
                 print("  <originaltitle><![CDATA[" + json_data['original_naming_rule'] + "]]></originaltitle>", file=code)
                 print("  <sorttitle><![CDATA[" + naming_rule + "]]></sorttitle>", file=code)
@@ -358,7 +358,7 @@ def print_files(path, leak_word, c_word, naming_rule, part, cn_sub, json_data, f
                 print("  <set></set>", file=code)
             print("  <studio>" + studio + "</studio>", file=code)
             print("  <year>" + year + "</year>", file=code)
-            if not config.getInstance().jellyfin():
+            if config.getInstance().jellyfin():
                 print("  <outline><![CDATA[" + outline + "]]></outline>", file=code)
                 print("  <plot><![CDATA[" + outline + "]]></plot>", file=code)
             else:

@@ -168,10 +168,8 @@ class Scraping:
                     # 当不知道source为何时，只能停止搜索
                     if 'source' not in other_json_data:
                         break
-                    # check other sources
-                    other_sources = other_sources[other_sources.index(other_json_data['source']) + 1:]
                 except:
-                    pass
+                    break
 
         # Return if data not found in all sources
         if not json_data:

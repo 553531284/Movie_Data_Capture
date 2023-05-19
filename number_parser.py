@@ -59,7 +59,7 @@ def get_number(debug: bool, file_path: str) -> str:
             if not re.search("-|_", filename): # 去掉-CD1之后再无-的情况，例如n1012-CD1.wmv
                 return str(re.search(r'\w+', filename[:filename.find('.')], re.A).group())
             file_number =  os.path.splitext(filename)
-            filename = re.search(r'[\w\-_]+', filename, re.A)
+            filename = re.search(r'\w+(-|_)\w+', filename, re.A)
             if filename:
                 file_number = str(filename.group())
             else:

@@ -712,10 +712,14 @@ if __name__ == '__main__':
                     time.sleep(再运行延迟)
                 else:
                     break
-            except:
+            except Exception as err:
+                print('[!]', err)
                 break
     else:
-        main(args)
+        try:
+            main(args)
+        except Exception as err:
+            print('[!]', err)
 
     if not conf.auto_exit():
         if sys.platform == 'win32':

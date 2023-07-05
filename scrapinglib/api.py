@@ -151,6 +151,7 @@ class Scraping:
             # search other sources
             # If cover not found in other source, then skip using other sources using javdb cover instead
             try:
+                # 默认用javbus，airav封面替换javdb封面
                 other_sources = ['javbus', 'airav']
                 other_json_data = self.searchAdult(number, other_sources)
                 if other_json_data is not None and 'cover' in other_json_data and other_json_data['cover'] != '':

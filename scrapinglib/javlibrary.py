@@ -62,7 +62,7 @@ class Javlibrary(Parser):
             if number in numbers:
                 urls = queryTree.xpath('//div[@class="id"]/../@href')
                 detailurl = urls[numbers.index(number)]
-                return "https://www.javlibrary.com/cn/?v=javmenqd7m#"
+                return "http://www.javlibrary.com/cn" + detailurl.strip('.')
         return None
 
     def getTitle(self, htmltree):

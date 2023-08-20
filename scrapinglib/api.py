@@ -207,31 +207,27 @@ class Scraping:
             # if the input file name matches certain rules,
             # move some web service to the beginning of the list
             lo_file_number = file_number.lower()
-            if "carib" in sources and (re.search(r"^\d{6}-\d{3}", file_number)
-            ):
-                sources = insert(sources, "carib")
-            elif "caribpr" in sources and (re.search(r"^\d{6}-\d{3}", file_number)
-            ):
+            if "carib" in sources:
                 sources = insert(sources, "caribpr")
+                sources = insert(sources, "carib")
             elif "item" in file_number or "GETCHU" in file_number.upper():
                 sources = ["getchu"]
-            elif "rj" in lo_file_number or "vj" in lo_file_number or re.search(r"[\u3040-\u309F\u30A0-\u30FF]+",
-                                                                               file_number):
+            elif "rj" in lo_file_number or "vj" in lo_file_number:
+                sources = ["dlsite"]
+            elif re.search(r"[\u3040-\u309F\u30A0-\u30FF]+", file_number):
                 sources = ["dlsite", "getchu"]
             elif "pcolle" in sources and "pcolle" in lo_file_number:
                 sources = ["pcolle"]
             elif "fc2" in lo_file_number:
-                if "fc2" in sources:
-                    sources = insert(sources, "msin")
-                    sources = insert(sources, "fc2")
-            elif "mgstage" in sources and \
-                    (re.search(r"\d+\D+", file_number) or "siro" in lo_file_number):
-                sources = insert(sources, "mgstage")
+                sources = ["fc2", "avsox", "msin"]
+            elif (re.search(r"\d+\D+-", file_number) or "siro" in lo_file_number):
+                if "mgstage" in sources:
+                    sources = insert(sources, "mgstage")
             elif "gcolle" in sources and (re.search("\d{6}", file_number)):
                 sources = insert(sources, "gcolle")
-            elif re.search(r"^\d{5,}", file_number) or "heyzo" in lo_file_number:
-                if "avsox" in sources:
-                    sources = insert(sources, "avsox")
+            elif re.search(r"^\d{5,}", file_number) or \
+                    (re.search(r"^\d{6}-\d{3}", file_number)) or "heyzo" in lo_file_number:
+                sources = ["avsox", "carib", "caribpr", "javbus", "xcity", "javdb"]
             elif re.search(r"^[a-z0-9]{3,}$", lo_file_number):
                 if "xcity" in sources:
                     sources = insert(sources, "xcity")
@@ -246,7 +242,7 @@ class Scraping:
                 todel.append(s)
         for d in todel:
             if config.getInstance().debug():
-                print('[!] Remove Source : ' + s)
+                print('[!] Remove Source : ' + d)
             sources.remove(d)
         return sources
 

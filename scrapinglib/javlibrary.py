@@ -18,7 +18,7 @@ class Javlibrary(Parser):
     expr_runtime = '//div[@id="video_length"]/table/tr/td/span[@class="text"]/text()'
     expr_userrating = '//div[@id="video_review"]/table/tr/td/span[@class="score"]/text()'
     expr_director = '//div[@id="video_director"]/table/tr/td[@class="text"]/span/a/text()'
-    expr_extrafanart = '//div[@class="previewthumbs"]/img/@src'
+    expr_extrafanart = '//div[@class="previewthumbs"]/a[not(contains(@class,"btn_videoplayer"))]/img/@src'
 
     def extraInit(self):
         self.htmltree = None
@@ -62,7 +62,7 @@ class Javlibrary(Parser):
             if number in numbers:
                 urls = queryTree.xpath('//div[@class="id"]/../@href')
                 detailurl = urls[numbers.index(number)]
-                return "http://www.javlibrary.com/cn" + detailurl.strip('.')
+                return "https://www.javlibrary.com/cn/?v=javmenqd7m#"
         return None
 
     def getTitle(self, htmltree):

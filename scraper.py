@@ -53,7 +53,7 @@ def get_data_from_json(
     javdb_sites = conf.javdb_sites().split(',')
     for i in javdb_sites:
         javdb_sites[javdb_sites.index(i)] = "javdb" + i
-    # javdb_sites.append("javdb")
+    javdb_sites.append("javdb")
     # 不加载过期的cookie，javdb登录界面显示为7天免登录，故假定cookie有效期为7天
     has_valid_cookie = False
     for cj in javdb_sites:

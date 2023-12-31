@@ -572,7 +572,7 @@ def add_to_pic(pic_path, img_pic, size, count, mode):
     # 如果没有本地图片才通过网络下载
     else:
         mark_pic_path = BytesIO(
-            get_html("https://raw.githubusercontent.com/yoshiko2/AV_Data_Capture/master/" + pngpath,
+            get_html("https://raw.githubusercontent.com/553531284/Movie_Data_Capture/master/" + pngpath,
                      return_type="content"))
     img_subt = Image.open(mark_pic_path)
     scroll_high = int(img_pic.height / size)

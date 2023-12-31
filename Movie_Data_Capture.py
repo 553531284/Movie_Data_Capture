@@ -559,10 +559,10 @@ def main(args: tuple) -> Path:
 
     if conf.update_check():
         try:
-            check_update(version)
+            #check_update(version)
             # Download Mapping Table, parallel version
             def fmd(f) -> typing.Tuple[str, Path]:
-                return ('https://raw.githubusercontent.com/yoshiko2/Movie_Data_Capture/master/MappingTable/' + f,
+                return ('https://raw.githubusercontent.com/553531284/Movie_Data_Capture/master/MappingTable/' + f,
                         Path.home() / '.local' / 'share' / 'mdc' / f)
 
             map_tab = (fmd('mapping_actor.xml'), fmd('mapping_info.xml'), fmd('c_number.json'))

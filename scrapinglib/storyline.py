@@ -211,8 +211,8 @@ def getStoryline_avno1(number, debug, proxies, verify):  #获取剧情介绍 从
             'www.hdsex.cc','www.porn18.cc','www.xxx18.cc',])
         url = f'http://{site}/cn/search.php?kw_type=key&kw={number}'
         lx = fromstring(get_html_by_scraper(url, proxies=proxies, verify=verify))
-        descs = lx.xpath('//div[@class="type_movie"]/div/ul/li/div/@data-description')
-        titles = lx.xpath('//div[@class="type_movie"]/div/ul/li/div/a/h3/text()')
+        descs = lx.xpath('//div[contains(@class,"one-info-panel")]/@data-description')
+        titles = lx.xpath('//div[contains(@class,"one-info-panel")]/div/span[@class="title"]/a/@title')
         if not descs or not len(descs):
             raise ValueError(f"number not found")
         partial_num = bool(re.match(r'\d{6}[\-_]\d{2,3}', number))

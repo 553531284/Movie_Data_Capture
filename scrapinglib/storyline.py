@@ -151,6 +151,7 @@ def getStoryline_airavwiki(number, debug, proxies, verify):
     try:
         kwd = number[:6] if re.match(r'\d{6}[\-_]\d{2,3}', number) else number
         airavwiki = Airav()
+        airavwiki.init()
         airavwiki.addtion_Javbus = False
         airavwiki.proxies = proxies
         airavwiki.verify = verify
@@ -262,6 +263,7 @@ def getStoryline_avno1OLD(number, debug, proxies, verify):  #获取剧情介绍 
 def getStoryline_xcity(number, debug, proxies, verify):  #获取剧情介绍 从xcity取得
     try:
         xcityEngine = Xcity()
+        xcityEngine.init()
         xcityEngine.proxies = proxies
         xcityEngine.verify = verify
         jsons = xcityEngine.search(number)

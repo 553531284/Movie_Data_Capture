@@ -28,7 +28,7 @@ class Airav(Parser):
         if self.specifiedUrl:
             self.detailurl = self.specifiedUrl
         else:
-            self.detailurl = "https://www.airav.wiki/api/video/barcode/" + self.number.upper() + "?lng=zh-CN"
+            self.detailurl = "https://www.airav.wiki/api/video/barcode/" + self.number.upper() + "?lng=zh-TW"
         if self.addtion_Javbus:
             engine = Javbus()
             javbusinfo = engine.scrape(self.number, self)

@@ -212,7 +212,7 @@ class Scraping:
                 sources = insert(sources, "carib")
             elif "item" in file_number or "GETCHU" in file_number.upper():
                 sources = ["getchu"]
-            elif "rj" in lo_file_number or "vj" in lo_file_number:
+            elif lo_file_number.startswith('rj') or lo_file_number.startswith('vj'):
                 sources = ["dlsite"]
             elif re.search(r"[\u3040-\u309F\u30A0-\u30FF]+", file_number):
                 sources = ["dlsite", "getchu"]

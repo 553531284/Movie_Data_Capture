@@ -121,8 +121,8 @@ def getStoryline_airav(number, debug, proxies, verify):
         if not res:
             raise ValueError(f"get_html_by_session('{url}') failed")
         lx = fromstring(res.text)
-        urls = lx.xpath('//div[contains(@class,"mainbody_left_clips")]/ul/li/div/a[@class="ga_click"]/@href')
-        txts = lx.xpath('//div[contains(@class,"mainbody_left_clips")]/ul/li/div/a[@class="ga_click"]/h3[@class="one_name ga_name"]/text()')
+        urls = lx.xpath('//div[contains(@class,"col oneVideo")]/div/div[@class="oneVideo-top"]/a/@href')
+        txts = lx.xpath('//div[contains(@class,"col oneVideo")]/div/div[@class="oneVideo-body"]/h5/text()')
         detail_url = None
         for txt, url in zip(txts, urls):
             if re.search(number, txt, re.I) and txt.rfind('破壞版')== -1:
@@ -135,10 +135,10 @@ def getStoryline_airav(number, debug, proxies, verify):
             raise ValueError(f"session.get('{detail_url}') failed")
         lx = fromstring(res.text)
         t = str(lx.xpath('/html/head/title/text()')[0]).strip()
-        airav_number = str(re.findall(r'^\s*\[(.*?)]', t)[0])
+        airav_number = str(re.findall(r'^(.*?)\s', t)[0])
         if not re.search(number, airav_number, re.I):
             raise ValueError(f"page number ->[{airav_number}] not match")
-        desc = str(lx.xpath('//span[@itemprop="description"]/text()')[0]).strip()
+        desc = str(lx.xpath('//meta[@name="description"]/@content')[0]).strip()
         return desc
     except Exception as e:
         if debug:

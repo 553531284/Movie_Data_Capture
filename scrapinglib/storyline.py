@@ -125,7 +125,7 @@ def getStoryline_airav(number, debug, proxies, verify):
         txts = lx.xpath('//div[contains(@class,"col oneVideo")]/div/div[@class="oneVideo-body"]/h5/text()')
         detail_url = None
         for txt, url in zip(txts, urls):
-            if re.search(number, txt, re.I) and txt.rfind('破壞版')== -1:
+            if re.search(number, txt, re.I) and txt.rfind('破壞版') == -1 and txt.rfind('馬賽克破壞') == -1 and txt.rfind('中文字幕') == -1:
                 detail_url = urljoin(res.url, url)
                 break
         if detail_url is None:

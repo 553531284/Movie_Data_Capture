@@ -53,6 +53,10 @@ class Javbus(Parser):
                     ]) + "/"
                 self.detailurl = mirror_url + number
                 self.htmlcode = self.getHtml(self.detailurl)
+            # 简单处理300开头番号
+            if self.htmlcode == 404 and not number.startswith('300'):
+                self.detailurl = 'https://www.javbus.com/300' + number
+                self.htmlcode = self.getHtml(self.detailurl)
             if self.htmlcode == 404:
                 return 404
             htmltree = etree.fromstring(self.htmlcode,etree.HTMLParser())

@@ -53,9 +53,9 @@ class Javmenu(Parser):
     def getTitle(self, htmltree):
         browser_title = super().getTitle(htmltree)
         # 删除番号
-        number = re.findall("\d+",self.number)[1]
-        title = browser_title.split(number,1)[-1]
-        title = title.replace(' | JAV目錄大全 | 每日更新',"")
-        title = title.replace(' | JAV目录大全 | 每日更新',"").strip()
+        title = browser_title.split(self.number,1)[-1]
+        title = title.replace(' | JAV目錄大全',"")
+        title = title.replace(' | JAV目錄大全',"")
+        title = title.replace(' | 每日更新',"").strip()
         return title.replace(self.number, '').strip()
     

@@ -51,7 +51,7 @@ def get_html(url, cookies: dict = None, ua: str = None, return_type: str = None,
                                       verify=verify,
                                       cookies=cookies)
             else:
-                result = requests.get(str(url), headers=headers, timeout=config_proxy.timeout, cookies=cookies)
+                result = requests.get(str(url), headers=headers, timeout=config_proxy.timeout, cookies=cookies,verify=False)
 
             if return_type == "object":
                 return result

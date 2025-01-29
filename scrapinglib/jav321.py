@@ -57,4 +57,7 @@ class Jav321(Parser):
         return super().getRelease(htmltree).split(": ")[1]
     
     def getRuntime(self, htmltree):
-        return super().getRuntime(htmltree).split(": ")[1]
+        try:
+            return super().getRuntime(htmltree).split(": ")[1]
+        except:
+            return ''

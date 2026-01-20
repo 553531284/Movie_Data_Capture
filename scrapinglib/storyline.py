@@ -20,30 +20,35 @@ from multiprocessing.dummy import Pool as ThreadPool
 
 from .airav import Airav
 from .xcity import Xcity
-from .httprequest import get_html_by_form, get_html_by_scraper, request_session
+from .httprequest import get_html_by_form, get_html_by_scraper, request_scraper_session
 
 # 舍弃 Amazon 源
 G_registered_storyline_site = {"airavwiki", "airav", "avno1", "xcity", "58avgo"}
 
-G_mode_txt = ('顺序执行','线程池')
+G_mode_txt = ('顺序执行', '线程池')
+
+
 def is_japanese(raw: str) -> bool:
     """
     日语简单检测
     """
     return bool(re.search(r'[\u3040-\u309F\u30A0-\u30FF\uFF66-\uFF9F]', raw, re.UNICODE))
 
+
 class noThread(object):
     def map(self, fn, param):
         return list(builtins.map(fn, param))
+
     def __enter__(self):
         return self
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
 
 
 # 获取剧情介绍 从列表中的站点同时查，取值优先级从前到后
 @lru_cache(maxsize=None)
-def getStoryline(number, title=None, sites: list=None, uncensored=None, proxies=None, verify=None):
+def getStoryline(number, title=None, sites: list = None, uncensored=None, proxies=None, verify=None):
     start_time = time.time()
     debug = False
     storyine_sites = config.getInstance().storyline_site().split(",")  # "1:airav,4:airavwiki".split(',')
@@ -117,9 +122,9 @@ def getStoryline_mp(args):
 
 def getStoryline_airav(number, debug, proxies, verify):
     try:
-        site = secrets.choice(('airav.cc','airav4.club'))
-        url = f'https://{site}/searchresults.aspx?Search={number}&Type=0'
-        session = request_session(proxies=proxies, verify=verify)
+        site = 'airav.io'
+        url = f'https://{site}/search_result?kw={number}'
+        session = request_scraper_session(proxies=proxies, verify=verify)
         res = session.get(url)
         if not res:
             raise ValueError(f"get_html_by_session('{url}') failed")
@@ -128,7 +133,8 @@ def getStoryline_airav(number, debug, proxies, verify):
         txts = lx.xpath('//div[contains(@class,"col oneVideo")]/div/div[@class="oneVideo-body"]/h5/text()')
         detail_url = None
         for txt, url in zip(txts, urls):
-            if re.search(number, txt, re.I) and txt.rfind('破壞版') == -1 and txt.rfind('馬賽克破壞') == -1 and txt.rfind('中文字幕') == -1:
+            if re.search(number, txt, re.I) and txt.rfind('破壞版') == -1 and txt.rfind(
+                    '馬賽克破壞') == -1 and txt.rfind('中文字幕') == -1:
                 detail_url = urljoin(res.url, url)
                 break
         if detail_url is None:
@@ -171,14 +177,14 @@ def getStoryline_airavwiki(number, debug, proxies, verify):
 def getStoryline_58avgo(number, debug, proxies, verify):
     try:
         url = 'http://58avgo.com/cn/index.aspx' + secrets.choice([
-                '', '?status=3', '?status=4', '?status=7', '?status=9', '?status=10', '?status=11', '?status=12',
-                '?status=1&Sort=Playon', '?status=1&Sort=dateupload', 'status=1&Sort=dateproduce'
-        ]) # 随机选一个，避免网站httpd日志中单个ip的请求太过单一
+            '', '?status=3', '?status=4', '?status=7', '?status=9', '?status=10', '?status=11', '?status=12',
+            '?status=1&Sort=Playon', '?status=1&Sort=dateupload', 'status=1&Sort=dateproduce'
+        ])  # 随机选一个，避免网站httpd日志中单个ip的请求太过单一
         kwd = number[:6] if re.match(r'\d{6}[\-_]\d{2,3}', number) else number
         result, browser = get_html_by_form(url,
-            fields = {'ctl00$TextBox_SearchKeyWord' : kwd},
-            proxies=proxies, verify=verify,
-            return_type = 'browser')
+                                           fields={'ctl00$TextBox_SearchKeyWord': kwd},
+                                           proxies=proxies, verify=verify,
+                                           return_type='browser')
         if not result:
             raise ValueError(f"get_html_by_form('{url}','{number}') failed")
         if f'searchresults.aspx?Search={kwd}' not in browser.url:
@@ -187,7 +193,7 @@ def getStoryline_58avgo(number, debug, proxies, verify):
         link = None
         for a in s:
             title = a.h3.text.strip()
-            list_number = title[title.rfind(' ')+1:].strip()
+            list_number = title[title.rfind(' ') + 1:].strip()
             if re.search(number, list_number, re.I):
                 link = a
                 break
@@ -208,11 +214,10 @@ def getStoryline_58avgo(number, debug, proxies, verify):
     return ''
 
 
-def getStoryline_avno1(number, debug, proxies, verify):  #获取剧情介绍 从avno1.cc取得
+def getStoryline_avno1(number, debug, proxies, verify):  # 获取剧情介绍 从avno1.cc取得
     try:
-        site = secrets.choice(['1768av.club','2nine.net','av999.tv','avno1.cc',
-            'hotav.biz','iqq2.xyz','javhq.tv',
-            'www.hdsex.cc','www.porn18.cc','www.xxx18.cc',])
+        site = secrets.choice(['1768av.club', '2nine.net', 'av999.tv', 'avno1.club',
+                               'hotav.biz', 'javhq.tv', 'hdsex.cc', 'porn18.cc', 'xxx18.cc', ])
         url = f'http://{site}/cn/search.php?kw_type=key&kw={number}'
         lx = fromstring(get_html_by_scraper(url, proxies=proxies, verify=verify))
         descs = lx.xpath('//div[contains(@class,"one-info-panel")]/@data-description')
@@ -221,10 +226,10 @@ def getStoryline_avno1(number, debug, proxies, verify):  #获取剧情介绍 从
             raise ValueError(f"number not found")
         partial_num = bool(re.match(r'\d{6}[\-_]\d{2,3}', number))
         for title, desc in zip(titles, descs):
-            page_number = title[title.rfind(' ')+1:].strip()
+            page_number = title[title.rfind(' ') + 1:].strip()
             if not partial_num:
                 # 不选择title中带破坏版的简介
-                if re.search(number, page_number, re.I) and title.rfind('破坏版')== -1:
+                if re.search(number, page_number, re.I) and title.rfind('破坏版') == -1:
                     return desc.strip()
             elif re.search(number, page_number, re.I):
                 return desc.strip()
@@ -236,23 +241,24 @@ def getStoryline_avno1(number, debug, proxies, verify):  #获取剧情介绍 从
     return ''
 
 
-def getStoryline_avno1OLD(number, debug, proxies, verify):  #获取剧情介绍 从avno1.cc取得
+def getStoryline_avno1OLD(number, debug, proxies, verify):  # 获取剧情介绍 从avno1.cc取得
     try:
         url = 'http://www.avno1.cc/cn/' + secrets.choice(['usercenter.php?item=' +
-                secrets.choice(['pay_support', 'qa', 'contact', 'guide-vpn']),
-                '?top=1&cat=hd', '?top=1', '?cat=hd', 'porn', '?cat=jp', '?cat=us', 'recommend_category.php'
-        ]) # 随机选一个，避免网站httpd日志中单个ip的请求太过单一
+                                                          secrets.choice(['pay_support', 'qa', 'contact', 'guide-vpn']),
+                                                          '?top=1&cat=hd', '?top=1', '?cat=hd', 'porn', '?cat=jp',
+                                                          '?cat=us', 'recommend_category.php'
+                                                          ])  # 随机选一个，避免网站httpd日志中单个ip的请求太过单一
         result, browser = get_html_by_form(url,
-            form_select='div.wrapper > div.header > div.search > form',
-            fields = {'kw' : number},
-            proxies=proxies, verify=verify,
-            return_type = 'browser')
+                                           form_select='div.wrapper > div.header > div.search > form',
+                                           fields={'kw': number},
+                                           proxies=proxies, verify=verify,
+                                           return_type='browser')
         if not result:
             raise ValueError(f"get_html_by_form('{url}','{number}') failed")
         s = browser.page.select('div.type_movie > div > ul > li > div')
         for div in s:
             title = div.a.h3.text.strip()
-            page_number = title[title.rfind(' ')+1:].strip()
+            page_number = title[title.rfind(' ') + 1:].strip()
             if re.search(number, page_number, re.I):
                 return div['data-description'].strip()
         raise ValueError(f"page number ->[{page_number}] not match")
@@ -263,7 +269,7 @@ def getStoryline_avno1OLD(number, debug, proxies, verify):  #获取剧情介绍 
     return ''
 
 
-def getStoryline_xcity(number, debug, proxies, verify):  #获取剧情介绍 从xcity取得
+def getStoryline_xcity(number, debug, proxies, verify):  # 获取剧情介绍 从xcity取得
     try:
         xcityEngine = Xcity()
         xcityEngine.init()

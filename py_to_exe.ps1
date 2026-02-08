@@ -1,6 +1,7 @@
 # If you can't run this script, please execute the following command in PowerShell.
 # Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
 
+$CURL_CFFI_PATH = $( python -c 'import curl_cffi as _; print(_.__path__[0])' | select -Last 1 )
 $CLOUDSCRAPER_PATH = $( python -c 'import cloudscraper as _; print(_.__path__[0])' | select -Last 1 )
 $OPENCC_PATH = $( python -c 'import opencc as _; print(_.__path__[0])' | select -Last 1 )
 $FACE_RECOGNITION_MODELS = $( python -c 'import face_recognition_models as _; print(_.__path__[0])' | select -Last 1 )
@@ -10,13 +11,15 @@ mkdir __pycache__
 
 pyinstaller --onefile Movie_Data_Capture.py `
     --hidden-import "ImageProcessing.cnn" `
+    --hidden-import "curl_cffi" `
     --python-option u `
     --add-data "$FACE_RECOGNITION_MODELS;face_recognition_models" `
+    --add-data "$CURL_CFFI_PATH;curl_cffi" `
     --add-data "$CLOUDSCRAPER_PATH;cloudscraper" `
     --add-data "$OPENCC_PATH;opencc" `
     --add-data "Img;Img" `
     --add-data "config.ini;." `
-    --add-data "scrapinglib;scrapinglib" `
+    --add-data "scrapinglib;scrapinglib"
 
 rmdir -Recurse -Force build
 rmdir -Recurse -Force __pycache__

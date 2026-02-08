@@ -5,10 +5,11 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from cloudscraper import create_scraper
+from curl_cffi import requests as curl_requests
 
 import config
 
-G_USER_AGENT = r'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.133 Safari/537.36'
+G_USER_AGENT = r'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36'
 G_DEFAULT_TIMEOUT = 10
 
 
@@ -199,11 +200,24 @@ def get_html_by_scraper(url: str = None, cookies: dict = None, ua: str = None, r
 
 def request_scraper_session(cookies=None, ua: str = None, retry: int = 3, timeout: int = G_DEFAULT_TIMEOUT,
                             proxies=None, verify=None):
-    session = create_scraper(browser={'browser': 'chrome', 'platform': 'windows', 'desktop': True})
+    """
+    使用 curl_cffi 替代 cloudscraper
+    """
+    # impersonate="chrome120" 会自动处理 TLS 指纹和基础 Headers
+    session = curl_requests.Session(impersonate="chrome120")
+
     if verify is not None:
         session.verify = verify
     if proxies:
+        # curl_cffi 的代理格式与 requests 一致
         session.proxies = proxies
+
+    # 如果手动传入了 UA，则覆盖默认的
     if ua:
         session.headers.update({"User-Agent": ua})
+
+    # 预设 JavDB 业务 Cookie
+    if isinstance(cookies, dict) and len(cookies):
+        session.cookies.update(cookies)
+
     return session

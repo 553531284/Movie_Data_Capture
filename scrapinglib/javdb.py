@@ -3,7 +3,7 @@
 import re
 from urllib.parse import urljoin
 from lxml import etree
-from .httprequest import request_session
+from .httprequest import request_scraper_session
 from .parser import Parser
 
 
@@ -65,15 +65,27 @@ class Javdb(Parser):
 
     def search(self, number: str):
         self.number = number
-        self.session = request_session(cookies=self.cookies, proxies=self.proxies, verify=self.verify)
+        # 1. 初始化强力 Session
+        self.session = request_scraper_session(cookies=self.cookies, proxies=self.proxies, verify=self.verify)
+
+        # 2. 获取详情页链接
         if self.specifiedUrl:
             self.detailurl = self.specifiedUrl
         else:
             self.detailurl = self.queryNumberUrl(number)
-        self.deatilpage = self.session.get(self.detailurl).text
+
+        # 3. 发送请求
+        resp = self.session.get(self.detailurl)
+        self.deatilpage = resp.text
+
+        # 4. 检查是否触发了 Cloudflare 拦截 (状态码 403)
+        if resp.status_code == 403:
+            raise Exception(f"[!] {self.number}: 被 Cloudflare 拦截 (403)。请更换代理节点或检查 IP 质量。")
+
         if '此內容需要登入才能查看或操作' in self.deatilpage or '需要VIP權限才能訪問此內容' in self.deatilpage:
             self.noauth = True
             self.imagecut = 0
+            # 注意：此处 querytree 需要在 queryNumberUrl 中已成功赋值
             result = self.dictformat(self.querytree)
         else:
             htmltree = etree.fromstring(self.deatilpage, etree.HTMLParser())
@@ -81,31 +93,38 @@ class Javdb(Parser):
         return result
 
     def queryNumberUrl(self, number):
-        javdb_url = 'https://' + self.dbsite + '.com/search?q=' + number + '&f=all'
-        try:
-            resp = self.session.get(javdb_url)
-        except Exception as e:
-            #print(e)
-            raise Exception(f'[!] {self.number}: page not fond in javdb')
+        # 建议使用 https 且补全域名
+        javdb_url = f'https://{self.dbsite}.com/search?q={number}&f=all'
 
-        self.querytree = etree.fromstring(resp.text, etree.HTMLParser()) 
-        # javdb sometime returns multiple results,
-        # and the first elememt maybe not the one we are looking for
-        # iterate all candidates and find the match one
+        # 增加 Referer 模拟真实搜索行为
+        search_headers = {"Referer": f"https://{self.dbsite}.com/"}
+
+        try:
+            resp = self.session.get(javdb_url, headers=search_headers)
+            if resp.status_code == 403:
+                print("[-] 搜索页面触发 Cloudflare 403")
+        except Exception as e:
+            raise Exception(f'[!] {self.number}: 搜索请求失败 - {e}')
+
+        self.querytree = etree.fromstring(resp.text, etree.HTMLParser())
         urls = self.getTreeAll(self.querytree, '//*[contains(@class,"movie-list")]/div/a/@href')
-        # 记录一下欧美的ids  ['Blacked','Blacked']
+
+        if not urls:
+            raise ValueError(f"number {number} not found in javdb")
+
         if re.search(r'[a-zA-Z]+\.\d{2}\.\d{2}\.\d{2}', number):
             correct_url = urls[0]
         else:
-            ids = self.getTreeAll(self.querytree, '//*[contains(@class,"movie-list")]/div/a/div[contains(@class, "video-title")]/strong/text()')
+            ids = self.getTreeAll(self.querytree,
+                                  '//*[contains(@class,"movie-list")]/div/a/div[contains(@class, "video-title")]/strong/text()')
             try:
                 self.queryid = ids.index(number)
                 correct_url = urls[self.queryid]
             except:
-                # 为避免获得错误番号，只要精确对应的结果
-                if ids == [] or ids[0].upper() != number.upper():
-                    raise ValueError("number not found in javdb")
+                if not ids or ids[0].upper() != number.upper():
+                    raise ValueError(f"number {number} not found in javdb")
                 correct_url = urls[0]
+
         return urljoin(resp.url, correct_url)
 
     def getNum(self, htmltree):

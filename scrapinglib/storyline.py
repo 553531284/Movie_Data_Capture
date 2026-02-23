@@ -132,7 +132,7 @@ def getStoryline_airav(number, debug, proxies, verify):
         urls = lx.xpath('//div[contains(@class,"col oneVideo")]/div/div[@class="oneVideo-top"]/a/@href')
         txts = lx.xpath('//div[contains(@class,"col oneVideo")]/div/div[@class="oneVideo-body"]/h5/text()')
         detail_url = None
-        for txt, url in zip(txts, urls):
+        for txt, url in reversed(list(zip(txts, urls))):
             if re.search(number, txt, re.I) and txt.rfind('破壞版') == -1 and txt.rfind(
                     '馬賽克破壞') == -1 and txt.rfind('中文字幕') == -1:
                 detail_url = urljoin(res.url, url)
@@ -147,7 +147,7 @@ def getStoryline_airav(number, debug, proxies, verify):
         airav_number = str(re.findall(r'^(.*?)\s', t)[0])
         if not re.search(number, airav_number, re.I):
             raise ValueError(f"page number ->[{airav_number}] not match")
-        desc = str(lx.xpath('//meta[@name="description"]/@content')[0]).strip()
+        desc = str(lx.xpath('//meta[@name="description"]/@content')[0]).replace(number, "").replace(" - airav.io", "").strip()
         return desc
     except Exception as e:
         if debug:
